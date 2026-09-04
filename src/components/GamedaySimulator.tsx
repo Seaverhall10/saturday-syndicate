@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, FastForward, Info, ShieldCheck, Clock, CloudLightning } from 'lucide-react';
+import { Play, Pause, RotateCcw, FastForward, Info, ShieldCheck, Clock, CloudLightning, ChevronDown, ChevronUp } from 'lucide-react';
 import { SIMULATION_STEPS } from '../data/historical2025';
 import type { SimulationPhase } from '../data/historical2025';
 import type { Game } from '../types/pickem';
@@ -22,6 +22,7 @@ export const GamedaySimulator: React.FC<GamedaySimulatorProps> = ({
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showExplainer, setShowExplainer] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const currentStepIndex = SIMULATION_STEPS.findIndex((s) => s.id === currentPhase);
   const currentStep = SIMULATION_STEPS[currentStepIndex] || SIMULATION_STEPS[0];
@@ -52,6 +53,33 @@ export const GamedaySimulator: React.FC<GamedaySimulatorProps> = ({
       onPhaseChange(SIMULATION_STEPS[currentStepIndex - 1].id);
     }
   };
+
+  if (isCollapsed) {
+    return (
+      <div className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 py-1.5 px-3 sm:px-6 transition-all">
+        <div className="max-w-7xl mx-auto flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-slate-300 flex items-center gap-1.5">
+              <span>⚡</span>
+              <span>{isSimulating2025 ? '2025 Replay Simulator' : '2026 Opening Slate'}</span>
+            </span>
+            {isSimulating2025 && (
+              <span className="bg-amber-950 text-amber-300 border border-amber-800/80 px-2 py-0.5 rounded text-[10px] font-bold">
+                {currentStep.label}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 transition-colors bg-slate-800/60 hover:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700/60"
+          >
+            <span>Show Simulator Scrubber</span>
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-slate-900/95 backdrop-blur-md border-y border-indigo-500/30 shadow-2xl py-3 px-3 sm:px-6 transition-all">
@@ -193,6 +221,15 @@ export const GamedaySimulator: React.FC<GamedaySimulatorProps> = ({
               </button>
             </>
           )}
+
+          <button
+            onClick={() => setIsCollapsed(true)}
+            className="text-xs text-slate-400 hover:text-white flex items-center gap-1 px-2 py-1 bg-slate-800/80 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors ml-1"
+            title="Collapse timeline scrubber"
+          >
+            <span>Hide</span>
+            <ChevronUp className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
