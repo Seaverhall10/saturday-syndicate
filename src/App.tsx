@@ -148,12 +148,15 @@ export function App() {
     ? HISTORICAL_2025_GAMES.map((baseGame) => {
         const stepState = simulationStep.gamesState.find((s) => s.id === baseGame.id);
         if (!stepState) return baseGame;
+        const situation = stepState.situation !== undefined ? stepState.situation : baseGame.situation;
+        const status = stepState.status ?? baseGame.status;
         return {
           ...baseGame,
-          status: stepState.status ?? baseGame.status,
+          status,
           homeScore: stepState.homeScore ?? baseGame.homeScore,
           awayScore: stepState.awayScore ?? baseGame.awayScore,
-          situation: stepState.situation !== undefined ? stepState.situation : baseGame.situation,
+          situation,
+          gameClock: status === 'in' ? (situation?.downDistanceText || 'LIVE') : undefined,
         };
       })
     : games;

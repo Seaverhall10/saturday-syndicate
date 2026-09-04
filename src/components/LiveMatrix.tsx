@@ -12,7 +12,8 @@ import {
   Table, 
   Zap,
   TrendingUp,
-  Clock
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 
 interface LiveMatrixProps {
@@ -318,8 +319,10 @@ export const LiveMatrix: React.FC<LiveMatrixProps> = ({ games, members, userPick
             // Compute ATS cover margin if live or final
             const hasScores = game.homeScore !== undefined && game.awayScore !== undefined;
             const homeMargin = hasScores ? game.homeScore! + game.spread - game.awayScore! : 0;
-            const isHomeCovering = homeMargin > 0;
-            const isPush = homeMargin === 0;
+            const isHomeCovering = hasScores && homeMargin > 0;
+            const isAwayCovering = hasScores && homeMargin < 0;
+            const isPush = hasScores && homeMargin === 0;
+            const coverMargin = Math.abs(homeMargin);
 
             // Partition league members into who picked Home vs Away
             const awayPickers: { member: LeagueMember; isCovering: boolean }[] = [];
@@ -387,14 +390,38 @@ export const LiveMatrix: React.FC<LiveMatrixProps> = ({ games, members, userPick
                       </span>
                     )}
                     {isFinal ? (
-                      <span className="text-slate-300 font-bold bg-slate-800 px-2.5 py-0.5 rounded text-[11px]">
-                        FINAL
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-slate-300 font-bold bg-slate-800 px-2.5 py-0.5 rounded text-[11px] font-mono">
+                          FINAL
+                        </span>
+                        <span className="text-emerald-400 font-bold text-xs flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>
+                            {isPush
+                              ? 'ATS Push (Tied Spread)'
+                              : isHomeCovering
+                              ? `${game.homeTeam.name} COVERED ${formatSpread(homeSpread)} (by ${coverMargin.toFixed(1)} pts)`
+                              : `${game.awayTeam.name} COVERED ${formatSpread(awaySpread)} (by ${coverMargin.toFixed(1)} pts)`}
+                          </span>
+                        </span>
+                      </div>
                     ) : isLive ? (
-                      <span className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800 px-2.5 py-0.5 rounded text-[11px] animate-pulse">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                        {game.gameClock || 'LIVE'}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800 px-2.5 py-0.5 rounded text-[11px] animate-pulse">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                          {game.gameClock || 'LIVE'}
+                        </span>
+                        <span className="text-emerald-400 font-bold text-xs flex items-center gap-1">
+                          <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span>
+                            {isPush
+                              ? 'Tied ATS'
+                              : isHomeCovering
+                              ? `${game.homeTeam.shortName} WINNING SPREAD ${formatSpread(homeSpread)} (+${coverMargin.toFixed(1)})`
+                              : `${game.awayTeam.shortName} WINNING SPREAD ${formatSpread(awaySpread)} (+${coverMargin.toFixed(1)})`}
+                          </span>
+                        </span>
+                      </div>
                     ) : (
                       <span className="text-indigo-400 flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" /> Upcoming Kickoff
@@ -409,8 +436,10 @@ export const LiveMatrix: React.FC<LiveMatrixProps> = ({ games, members, userPick
                     {/* Away Team Row */}
                     <div
                       className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
-                        isLive && !isHomeCovering && !isPush
-                          ? 'bg-emerald-950/30 border-emerald-500/60 shadow-lg shadow-emerald-950/30'
+                        isLive && isAwayCovering
+                          ? 'bg-emerald-950/40 border-emerald-500/70 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/30'
+                          : isFinal && isAwayCovering
+                          ? 'bg-emerald-950/30 border-emerald-500/50'
                           : 'bg-slate-850/80 border-slate-800'
                       }`}
                     >
@@ -442,14 +471,52 @@ export const LiveMatrix: React.FC<LiveMatrixProps> = ({ games, members, userPick
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        {(isLive || isFinal) ? (
-                          <div className="font-mono font-black text-2xl sm:text-3xl text-white">
-                            {game.awayScore}
-                          </div>
-                        ) : (
-                          <div className="font-mono text-sm font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded">
+                      <div className="text-right flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-2">
+                          {(isLive || isFinal) && (
+                            <div className={`font-mono font-black text-2xl sm:text-3xl ${
+                              isAwayCovering ? 'text-emerald-400' : isFinal ? 'text-slate-400' : 'text-white'
+                            }`}>
+                              {game.awayScore}
+                            </div>
+                          )}
+                          <div className="font-mono text-sm font-bold text-slate-300 bg-slate-800 px-2.5 py-1 rounded border border-slate-700">
                             {formatSpread(awaySpread)}
+                          </div>
+                        </div>
+
+                        {(isLive || isFinal) && (
+                          <div className="font-mono text-xs">
+                            {isFinal ? (
+                              isAwayCovering ? (
+                                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                  ✓ COVERED (+{coverMargin.toFixed(1)})
+                                </span>
+                              ) : isHomeCovering ? (
+                                <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                                  FAILED TO COVER
+                                </span>
+                              ) : (
+                                <span className="text-amber-400 text-[10px] font-bold uppercase tracking-wider">
+                                  PUSH
+                                </span>
+                              )
+                            ) : isLive ? (
+                              isAwayCovering ? (
+                                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                  WINNING SPREAD (+{coverMargin.toFixed(1)})
+                                </span>
+                              ) : isHomeCovering ? (
+                                <span className="text-rose-400/80 text-[10px] font-bold uppercase tracking-wider">
+                                  LOSING SPREAD (-{coverMargin.toFixed(1)})
+                                </span>
+                              ) : (
+                                <span className="text-amber-400 text-[10px] font-bold uppercase tracking-wider">
+                                  TIED ATS
+                                </span>
+                              )
+                            ) : null}
                           </div>
                         )}
                       </div>
@@ -458,8 +525,10 @@ export const LiveMatrix: React.FC<LiveMatrixProps> = ({ games, members, userPick
                     {/* Home Team Row */}
                     <div
                       className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
-                        isLive && isHomeCovering && !isPush
-                          ? 'bg-emerald-950/30 border-emerald-500/60 shadow-lg shadow-emerald-950/30'
+                        isLive && isHomeCovering
+                          ? 'bg-emerald-950/40 border-emerald-500/70 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/30'
+                          : isFinal && isHomeCovering
+                          ? 'bg-emerald-950/30 border-emerald-500/50'
                           : 'bg-slate-850/80 border-slate-800'
                       }`}
                     >
@@ -491,14 +560,52 @@ export const LiveMatrix: React.FC<LiveMatrixProps> = ({ games, members, userPick
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        {(isLive || isFinal) ? (
-                          <div className="font-mono font-black text-2xl sm:text-3xl text-white">
-                            {game.homeScore}
-                          </div>
-                        ) : (
-                          <div className="font-mono text-sm font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded">
+                      <div className="text-right flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-2">
+                          {(isLive || isFinal) && (
+                            <div className={`font-mono font-black text-2xl sm:text-3xl ${
+                              isHomeCovering ? 'text-emerald-400' : isFinal ? 'text-slate-400' : 'text-white'
+                            }`}>
+                              {game.homeScore}
+                            </div>
+                          )}
+                          <div className="font-mono text-sm font-bold text-slate-300 bg-slate-800 px-2.5 py-1 rounded border border-slate-700">
                             {formatSpread(homeSpread)}
+                          </div>
+                        </div>
+
+                        {(isLive || isFinal) && (
+                          <div className="font-mono text-xs">
+                            {isFinal ? (
+                              isHomeCovering ? (
+                                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                  ✓ COVERED (+{coverMargin.toFixed(1)})
+                                </span>
+                              ) : isAwayCovering ? (
+                                <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                                  FAILED TO COVER
+                                </span>
+                              ) : (
+                                <span className="text-amber-400 text-[10px] font-bold uppercase tracking-wider">
+                                  PUSH
+                                </span>
+                              )
+                            ) : isLive ? (
+                              isHomeCovering ? (
+                                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                  WINNING SPREAD (+{coverMargin.toFixed(1)})
+                                </span>
+                              ) : isAwayCovering ? (
+                                <span className="text-rose-400/80 text-[10px] font-bold uppercase tracking-wider">
+                                  LOSING SPREAD (-{coverMargin.toFixed(1)})
+                                </span>
+                              ) : (
+                                <span className="text-amber-400 text-[10px] font-bold uppercase tracking-wider">
+                                  TIED ATS
+                                </span>
+                              )
+                            ) : null}
                           </div>
                         )}
                       </div>
@@ -719,13 +826,35 @@ export const LiveMatrix: React.FC<LiveMatrixProps> = ({ games, members, userPick
                             {game.spread === 0 ? 'PK' : game.spread > 0 ? `+${game.spread}` : game.spread}
                           </div>
                           {isFinal ? (
-                            <span className="text-[10px] text-slate-400 font-bold bg-slate-800 px-1.5 py-0.5 rounded mt-1 font-mono">
-                              {game.awayScore}-{game.homeScore}
-                            </span>
+                            <div className="flex flex-col items-center mt-1 gap-0.5">
+                              <span className="text-[10px] text-slate-300 font-bold bg-slate-800 px-1.5 py-0.2 rounded font-mono">
+                                {game.awayScore}-{game.homeScore}
+                              </span>
+                              {game.homeScore !== undefined && game.awayScore !== undefined && (
+                                <span className="text-[9px] text-emerald-400 font-black">
+                                  {game.homeScore + game.spread === game.awayScore
+                                    ? 'PUSH'
+                                    : game.homeScore + game.spread > game.awayScore
+                                    ? `${game.homeTeam.abbreviation} Cov`
+                                    : `${game.awayTeam.abbreviation} Cov`}
+                                </span>
+                              )}
+                            </div>
                           ) : isLive ? (
-                            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/80 px-1.5 py-0.5 rounded mt-1 font-mono animate-pulse">
-                              {game.awayScore}-{game.homeScore}
-                            </span>
+                            <div className="flex flex-col items-center mt-1 gap-0.5">
+                              <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-800/80 px-1.5 py-0.2 rounded font-mono animate-pulse">
+                                {game.awayScore}-{game.homeScore}
+                              </span>
+                              {game.homeScore !== undefined && game.awayScore !== undefined && (
+                                <span className="text-[9px] text-emerald-300 font-bold">
+                                  {game.homeScore + game.spread === game.awayScore
+                                    ? 'Tied ATS'
+                                    : game.homeScore + game.spread > game.awayScore
+                                    ? `${game.homeTeam.abbreviation} Lead ATS`
+                                    : `${game.awayTeam.abbreviation} Lead ATS`}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-[10px] text-slate-500 mt-1">
                               {locked ? 'Locked' : 'Upcoming'}

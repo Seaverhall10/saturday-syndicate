@@ -6,6 +6,7 @@ import {
   CheckCircle2, 
   ChevronDown, 
   ChevronUp,
+  Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -232,12 +233,15 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                         {game.gameClock || 'LIVE'}
                       </span>
                       {hasScores && (
-                        <span className="text-emerald-400/90 text-[11px] font-semibold">
-                          {homeCovered
-                            ? `${game.homeTeam.shortName} covering (+${coverMargin.toFixed(1)})`
-                            : awayCovered
-                            ? `${game.awayTeam.shortName} covering (+${coverMargin.toFixed(1)})`
-                            : 'Push'}
+                        <span className="text-emerald-400 text-xs font-bold flex items-center gap-1">
+                          <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span>
+                            {isPush
+                              ? 'Tied ATS'
+                              : homeCovered
+                              ? `${game.homeTeam.shortName} WINNING SPREAD ${formatSpread(homeSpread)} (+${coverMargin.toFixed(1)})`
+                              : `${game.awayTeam.shortName} WINNING SPREAD ${formatSpread(awaySpread)} (+${coverMargin.toFixed(1)})`}
+                          </span>
                         </span>
                       )}
                     </div>
@@ -299,46 +303,62 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-right pl-2 shrink-0 flex flex-col items-end">
-                    <div
-                      className={`font-mono text-sm font-extrabold px-2.5 py-1 rounded-lg ${
-                        isAwayPicked
-                          ? isFinal && userPickStatus === 'won'
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : isFinal && userPickStatus === 'lost'
-                            ? 'bg-rose-700 text-white shadow-sm'
-                            : 'bg-indigo-600 text-white shadow-sm'
-                          : 'bg-slate-800 text-slate-200 border border-slate-700'
-                      }`}
-                    >
-                      {formatSpread(awaySpread)}
-                    </div>
-                    {hasScores && (
-                      <div className="mt-1 flex items-center gap-1.5 font-mono">
+                  <div className="text-right pl-2 shrink-0 flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-2">
+                      {hasScores && (
                         <span
-                          className={`text-sm font-black ${
+                          className={`font-mono text-xl sm:text-2xl font-black ${
                             awayCovered
                               ? 'text-emerald-400'
                               : isFinal
-                              ? 'text-slate-500'
-                              : 'text-slate-300'
+                              ? 'text-slate-400'
+                              : 'text-white'
                           }`}
                         >
                           {game.awayScore}
                         </span>
+                      )}
+                      <div
+                        className={`font-mono text-sm font-extrabold px-2.5 py-1 rounded-lg ${
+                          isAwayPicked
+                            ? isFinal && userPickStatus === 'won'
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : isFinal && userPickStatus === 'lost'
+                              ? 'bg-rose-700 text-white shadow-sm'
+                              : 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-slate-800 text-slate-200 border border-slate-700'
+                        }`}
+                      >
+                        {formatSpread(awaySpread)}
+                      </div>
+                    </div>
+
+                    {hasScores && (
+                      <div className="flex items-center gap-1 font-mono">
                         {isFinal && awayCovered && (
-                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-black px-1.5 py-0.2 rounded uppercase">
-                            COVERED
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black px-2 py-0.5 rounded uppercase">
+                            ✓ COVERED (+{coverMargin.toFixed(1)})
                           </span>
                         )}
                         {isFinal && homeCovered && (
-                          <span className="text-slate-500 text-[9px] font-semibold uppercase">
+                          <span className="text-slate-500 text-[10px] font-semibold uppercase">
                             MISSED
                           </span>
                         )}
                         {isLive && awayCovered && (
-                          <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-bold px-1.5 py-0.2 rounded uppercase animate-pulse">
-                            COVERING
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black px-2 py-0.5 rounded uppercase animate-pulse flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            WINNING SPREAD (+{coverMargin.toFixed(1)})
+                          </span>
+                        )}
+                        {isLive && homeCovered && (
+                          <span className="text-rose-400/80 text-[10px] font-semibold uppercase">
+                            LOSING SPREAD (-{coverMargin.toFixed(1)})
+                          </span>
+                        )}
+                        {isPush && (
+                          <span className="text-amber-400 text-[10px] font-bold uppercase">
+                            TIED ATS
                           </span>
                         )}
                       </div>
@@ -390,46 +410,62 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-right pl-2 shrink-0 flex flex-col items-end">
-                    <div
-                      className={`font-mono text-sm font-extrabold px-2.5 py-1 rounded-lg ${
-                        isHomePicked
-                          ? isFinal && userPickStatus === 'won'
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : isFinal && userPickStatus === 'lost'
-                            ? 'bg-rose-700 text-white shadow-sm'
-                            : 'bg-indigo-600 text-white shadow-sm'
-                          : 'bg-slate-800 text-slate-200 border border-slate-700'
-                      }`}
-                    >
-                      {formatSpread(homeSpread)}
-                    </div>
-                    {hasScores && (
-                      <div className="mt-1 flex items-center gap-1.5 font-mono">
+                  <div className="text-right pl-2 shrink-0 flex flex-col items-end gap-1">
+                    <div className="flex items-center gap-2">
+                      {hasScores && (
                         <span
-                          className={`text-sm font-black ${
+                          className={`font-mono text-xl sm:text-2xl font-black ${
                             homeCovered
                               ? 'text-emerald-400'
                               : isFinal
-                              ? 'text-slate-500'
-                              : 'text-slate-300'
+                              ? 'text-slate-400'
+                              : 'text-white'
                           }`}
                         >
                           {game.homeScore}
                         </span>
+                      )}
+                      <div
+                        className={`font-mono text-sm font-extrabold px-2.5 py-1 rounded-lg ${
+                          isHomePicked
+                            ? isFinal && userPickStatus === 'won'
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : isFinal && userPickStatus === 'lost'
+                              ? 'bg-rose-700 text-white shadow-sm'
+                              : 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-slate-800 text-slate-200 border border-slate-700'
+                        }`}
+                      >
+                        {formatSpread(homeSpread)}
+                      </div>
+                    </div>
+
+                    {hasScores && (
+                      <div className="flex items-center gap-1 font-mono">
                         {isFinal && homeCovered && (
-                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-black px-1.5 py-0.2 rounded uppercase">
-                            COVERED
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black px-2 py-0.5 rounded uppercase">
+                            ✓ COVERED (+{coverMargin.toFixed(1)})
                           </span>
                         )}
                         {isFinal && awayCovered && (
-                          <span className="text-slate-500 text-[9px] font-semibold uppercase">
+                          <span className="text-slate-500 text-[10px] font-semibold uppercase">
                             MISSED
                           </span>
                         )}
                         {isLive && homeCovered && (
-                          <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-bold px-1.5 py-0.2 rounded uppercase animate-pulse">
-                            COVERING
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black px-2 py-0.5 rounded uppercase animate-pulse flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            WINNING SPREAD (+{coverMargin.toFixed(1)})
+                          </span>
+                        )}
+                        {isLive && awayCovered && (
+                          <span className="text-rose-400/80 text-[10px] font-semibold uppercase">
+                            LOSING SPREAD (-{coverMargin.toFixed(1)})
+                          </span>
+                        )}
+                        {isPush && (
+                          <span className="text-amber-400 text-[10px] font-bold uppercase">
+                            TIED ATS
                           </span>
                         )}
                       </div>
