@@ -141,6 +141,11 @@ export async function fetchLiveEspnScoreboard(): Promise<EspnSyncResult> {
       throw new Error(`ESPN Scoreboard returned HTTP ${res.status}: ${res.statusText}`);
     }
 
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('json')) {
+      throw new Error('ESPN data feed temporarily protected by Akamai. Verified Top 25 slate retained.');
+    }
+
     const data = await res.json();
     const events = data.events || [];
 
