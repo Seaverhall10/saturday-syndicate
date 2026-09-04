@@ -137,11 +137,35 @@ export const PickSheet: React.FC<PickSheetProps> = ({
           const hasNotes = game.notes && game.notes.length > 0;
           const wasJustSaved = justSavedId === game.id;
 
+          const hasScores = (isLive || isFinal) && game.homeScore !== undefined && game.awayScore !== undefined;
+          const homeScore = game.homeScore ?? 0;
+          const awayScore = game.awayScore ?? 0;
+          // ATS Margin: positive means Home covered, negative means Away covered
+          const homeMargin = hasScores ? homeScore + homeSpread - awayScore : 0;
+          const isPush = hasScores && homeMargin === 0;
+          const homeCovered = hasScores && homeMargin > 0;
+          const awayCovered = hasScores && homeMargin < 0;
+          const coverMargin = Math.abs(homeMargin);
+
+          // Determine user's pick result
+          const isUserHome = currentPick?.selectedTeamId === game.homeTeam.id;
+          const isUserAway = currentPick?.selectedTeamId === game.awayTeam.id;
+          let userPickStatus: 'won' | 'lost' | 'push' | null = null;
+          if (hasScores && currentPick) {
+            if (isPush) userPickStatus = 'push';
+            else if (isUserHome) userPickStatus = homeCovered ? 'won' : 'lost';
+            else if (isUserAway) userPickStatus = awayCovered ? 'won' : 'lost';
+          }
+
           return (
             <div
               key={game.id}
               className={`rounded-2xl border transition-all duration-150 overflow-hidden ${
-                locked
+                isFinal && userPickStatus === 'won'
+                  ? 'bg-slate-900/90 border-emerald-500/40 shadow-lg'
+                  : isFinal && userPickStatus === 'lost'
+                  ? 'bg-slate-900/90 border-rose-900/40 shadow'
+                  : locked
                   ? 'bg-slate-900/50 border-slate-800/70'
                   : wasJustSaved
                   ? 'bg-slate-900 border-indigo-500/80 ring-1 ring-indigo-500/40 shadow-lg'
@@ -150,8 +174,8 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                   : 'bg-slate-900/90 border-slate-800/80 shadow hover:border-slate-700'
               }`}
             >
-              {/* Clean 1-Line Header */}
-              <div className="flex items-center justify-between px-4 py-2.5 bg-slate-950/50 border-b border-slate-800/50 text-xs">
+              {/* Clean 1-Line Header with ATS Cover Indicator */}
+              <div className="flex flex-wrap items-center justify-between gap-1.5 px-4 py-2.5 bg-slate-950/60 border-b border-slate-800/50 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="text-slate-300 font-semibold">
                     {formatKickoff(game.kickoffTime)}
@@ -163,16 +187,60 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 font-medium">
+                <div className="flex items-center gap-2 font-medium">
                   {isFinal ? (
-                    <span className="text-slate-400 bg-slate-800/90 px-2 py-0.5 rounded text-[10px] font-bold font-mono">
-                      FINAL
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-slate-300 bg-slate-800 px-2 py-0.5 rounded text-[10px] font-bold font-mono">
+                        FINAL
+                      </span>
+                      {isPush ? (
+                        <span className="text-amber-400 text-[11px] font-bold">
+                          ATS Push (Tied)
+                        </span>
+                      ) : homeCovered ? (
+                        <span className="text-emerald-400 text-[11px] font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>{game.homeTeam.shortName} Covered {formatSpread(homeSpread)} (by {coverMargin.toFixed(1)})</span>
+                        </span>
+                      ) : (
+                        <span className="text-emerald-400 text-[11px] font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>{game.awayTeam.shortName} Covered {formatSpread(awaySpread)} (by {coverMargin.toFixed(1)})</span>
+                        </span>
+                      )}
+
+                      {userPickStatus === 'won' && (
+                        <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
+                          🏆 You Won
+                        </span>
+                      )}
+                      {userPickStatus === 'lost' && (
+                        <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
+                          ✕ Pick Lost
+                        </span>
+                      )}
+                      {userPickStatus === 'push' && (
+                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
+                          ↔ Push
+                        </span>
+                      )}
+                    </div>
                   ) : isLive ? (
-                    <span className="flex items-center gap-1.5 text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      {game.gameClock || 'LIVE'}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="flex items-center gap-1 text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        {game.gameClock || 'LIVE'}
+                      </span>
+                      {hasScores && (
+                        <span className="text-emerald-400/90 text-[11px] font-semibold">
+                          {homeCovered
+                            ? `${game.homeTeam.shortName} covering (+${coverMargin.toFixed(1)})`
+                            : awayCovered
+                            ? `${game.awayTeam.shortName} covering (+${coverMargin.toFixed(1)})`
+                            : 'Push'}
+                        </span>
+                      )}
+                    </div>
                   ) : locked ? (
                     <span className="flex items-center gap-1 text-rose-400 text-[11px] font-semibold">
                       <Lock className="w-3 h-3" /> Locked
@@ -194,9 +262,17 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                   onClick={() => handlePickClick(game.id, game.awayTeam.id, awaySpread)}
                   className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
                     isAwayPicked
-                      ? 'bg-indigo-950/90 border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg'
+                      ? isFinal && userPickStatus === 'won'
+                        ? 'bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-950/50'
+                        : isFinal && userPickStatus === 'lost'
+                        ? 'bg-rose-950/60 border-rose-800/80 ring-1 ring-rose-500/30 opacity-90'
+                        : isLive && awayCovered
+                        ? 'bg-emerald-950/70 border-emerald-500/80 ring-2 ring-emerald-500/40 shadow-lg'
+                        : 'bg-indigo-950/90 border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg'
                       : locked
-                      ? 'bg-slate-900/40 border-slate-800/50 opacity-70 cursor-not-allowed'
+                      ? isFinal && awayCovered
+                        ? 'bg-slate-900/80 border-emerald-500/30'
+                        : 'bg-slate-900/40 border-slate-800/50 opacity-70 cursor-not-allowed'
                       : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700 hover:bg-slate-850/60 active:scale-[0.99]'
                   }`}
                 >
@@ -223,19 +299,48 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-right pl-2 shrink-0">
+                  <div className="text-right pl-2 shrink-0 flex flex-col items-end">
                     <div
                       className={`font-mono text-sm font-extrabold px-2.5 py-1 rounded-lg ${
                         isAwayPicked
-                          ? 'bg-indigo-600 text-white shadow-sm'
+                          ? isFinal && userPickStatus === 'won'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : isFinal && userPickStatus === 'lost'
+                            ? 'bg-rose-700 text-white shadow-sm'
+                            : 'bg-indigo-600 text-white shadow-sm'
                           : 'bg-slate-800 text-slate-200 border border-slate-700'
                       }`}
                     >
                       {formatSpread(awaySpread)}
                     </div>
-                    {(isLive || isFinal) && (
-                      <div className="text-xs font-bold text-slate-300 mt-1 font-mono">
-                        {game.awayScore}
+                    {hasScores && (
+                      <div className="mt-1 flex items-center gap-1.5 font-mono">
+                        <span
+                          className={`text-sm font-black ${
+                            awayCovered
+                              ? 'text-emerald-400'
+                              : isFinal
+                              ? 'text-slate-500'
+                              : 'text-slate-300'
+                          }`}
+                        >
+                          {game.awayScore}
+                        </span>
+                        {isFinal && awayCovered && (
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-black px-1.5 py-0.2 rounded uppercase">
+                            COVERED
+                          </span>
+                        )}
+                        {isFinal && homeCovered && (
+                          <span className="text-slate-500 text-[9px] font-semibold uppercase">
+                            MISSED
+                          </span>
+                        )}
+                        {isLive && awayCovered && (
+                          <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-bold px-1.5 py-0.2 rounded uppercase animate-pulse">
+                            COVERING
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -248,9 +353,17 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                   onClick={() => handlePickClick(game.id, game.homeTeam.id, homeSpread)}
                   className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
                     isHomePicked
-                      ? 'bg-indigo-950/90 border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg'
+                      ? isFinal && userPickStatus === 'won'
+                        ? 'bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-950/50'
+                        : isFinal && userPickStatus === 'lost'
+                        ? 'bg-rose-950/60 border-rose-800/80 ring-1 ring-rose-500/30 opacity-90'
+                        : isLive && homeCovered
+                        ? 'bg-emerald-950/70 border-emerald-500/80 ring-2 ring-emerald-500/40 shadow-lg'
+                        : 'bg-indigo-950/90 border-indigo-500 ring-2 ring-indigo-500/40 shadow-lg'
                       : locked
-                      ? 'bg-slate-900/40 border-slate-800/50 opacity-70 cursor-not-allowed'
+                      ? isFinal && homeCovered
+                        ? 'bg-slate-900/80 border-emerald-500/30'
+                        : 'bg-slate-900/40 border-slate-800/50 opacity-70 cursor-not-allowed'
                       : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700 hover:bg-slate-850/60 active:scale-[0.99]'
                   }`}
                 >
@@ -277,19 +390,48 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-right pl-2 shrink-0">
+                  <div className="text-right pl-2 shrink-0 flex flex-col items-end">
                     <div
                       className={`font-mono text-sm font-extrabold px-2.5 py-1 rounded-lg ${
                         isHomePicked
-                          ? 'bg-indigo-600 text-white shadow-sm'
+                          ? isFinal && userPickStatus === 'won'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : isFinal && userPickStatus === 'lost'
+                            ? 'bg-rose-700 text-white shadow-sm'
+                            : 'bg-indigo-600 text-white shadow-sm'
                           : 'bg-slate-800 text-slate-200 border border-slate-700'
                       }`}
                     >
                       {formatSpread(homeSpread)}
                     </div>
-                    {(isLive || isFinal) && (
-                      <div className="text-xs font-bold text-slate-300 mt-1 font-mono">
-                        {game.homeScore}
+                    {hasScores && (
+                      <div className="mt-1 flex items-center gap-1.5 font-mono">
+                        <span
+                          className={`text-sm font-black ${
+                            homeCovered
+                              ? 'text-emerald-400'
+                              : isFinal
+                              ? 'text-slate-500'
+                              : 'text-slate-300'
+                          }`}
+                        >
+                          {game.homeScore}
+                        </span>
+                        {isFinal && homeCovered && (
+                          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-black px-1.5 py-0.2 rounded uppercase">
+                            COVERED
+                          </span>
+                        )}
+                        {isFinal && awayCovered && (
+                          <span className="text-slate-500 text-[9px] font-semibold uppercase">
+                            MISSED
+                          </span>
+                        )}
+                        {isLive && homeCovered && (
+                          <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-bold px-1.5 py-0.2 rounded uppercase animate-pulse">
+                            COVERING
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
