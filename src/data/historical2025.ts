@@ -713,7 +713,18 @@ export const SIMULATION_STEPS: SimulationStep[] = [
       },
       { id: 'hist-2025-4', status: 'pre', homeScore: 0, awayScore: 0 },
       { id: 'hist-2025-5', status: 'pre', homeScore: 0, awayScore: 0 },
-      { id: 'hist-2025-6', status: 'pre', homeScore: 0, awayScore: 0 },
+      { 
+        id: 'hist-2025-6', 
+        status: 'post', 
+        homeScore: 31, 
+        awayScore: 26,
+        situation: {
+          downDistanceText: 'Final',
+          yardLine: 4,
+          possessionTeamId: 'ndsu',
+          lastPlayText: 'Final: Colorado hangs on 31-26 (NDSU covers +9.5!).',
+        }
+      },
       { id: 'hist-2025-7', status: 'pre', homeScore: 0, awayScore: 0 },
       { id: 'hist-2025-8', status: 'pre', homeScore: 0, awayScore: 0 },
     ],

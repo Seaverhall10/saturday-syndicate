@@ -44,7 +44,7 @@ export function App() {
 
   // 2025 Historical Simulation States
   const [isSimulating2025, setIsSimulating2025] = useState(false);
-  const [simulationPhase, setSimulationPhase] = useState<SimulationPhase>('pre');
+  const [simulationPhase, setSimulationPhase] = useState<SimulationPhase>('afternoon_kick');
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -174,8 +174,8 @@ export function App() {
   const handleToggleSeasonMode = (simulate2025: boolean) => {
     setIsSimulating2025(simulate2025);
     if (simulate2025) {
-      setSimulationPhase('pre');
-      showToast('Switched to 2025 Historical Replay Simulator');
+      setSimulationPhase('afternoon_kick');
+      showToast('Switched to 2025 Replay: Showing completed & live games');
     } else {
       showToast('Returned to Live 2026 Opening Saturday Slate');
     }

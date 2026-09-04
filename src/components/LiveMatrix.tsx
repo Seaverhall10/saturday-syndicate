@@ -631,25 +631,23 @@ export const LiveMatrix: React.FC<LiveMatrixProps> = ({ games, members, userPick
                     </div>
                   )}
 
-                  {/* ATS Sweat Margin Indicator */}
-                  {(isLive || isFinal) && hasScores && (
+                  {/* ATS Live Sweat Indicator - only displayed during active games */}
+                  {isLive && hasScores && (
                     <div className="mt-3 bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <Zap className="w-4 h-4 text-amber-400" />
-                        <span className="font-bold text-white">
-                          {isFinal ? 'Official ATS Result:' : 'Current ATS Cover Status:'}
-                        </span>
+                        <span className="font-bold text-white">Live In-Game ATS Status:</span>
                       </div>
                       <div className="font-mono font-bold">
                         {isPush ? (
                           <span className="text-amber-400">Push (Tied ATS)</span>
                         ) : isHomeCovering ? (
                           <span className="text-emerald-400">
-                            {game.homeTeam.shortName} {isFinal ? 'COVERED' : 'is COVERING'} {formatSpread(homeSpread)} (by {Math.abs(homeMargin).toFixed(1)} pts)
+                            {game.homeTeam.shortName} is COVERING {formatSpread(homeSpread)} (by {Math.abs(homeMargin).toFixed(1)} pts)
                           </span>
                         ) : (
                           <span className="text-emerald-400">
-                            {game.awayTeam.shortName} {isFinal ? 'COVERED' : 'is COVERING'} {formatSpread(awaySpread)} (by {Math.abs(homeMargin).toFixed(1)} pts)
+                            {game.awayTeam.shortName} is COVERING {formatSpread(awaySpread)} (by {Math.abs(homeMargin).toFixed(1)} pts)
                           </span>
                         )}
                       </div>
