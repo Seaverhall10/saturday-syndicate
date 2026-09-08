@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import type { Game, UserPick, TiebreakerPick, LeagueMember } from './types/pickem';
+import type { Game, UserPick, TiebreakerPick, LeagueMember, SlateCurationConfig } from './types/pickem';
 import { INITIAL_GAMES, MOCK_LEAGUE_MEMBERS } from './data/mockData';
+import { WEEK_2_CURATED_GAMES, WEEK_2_CANDIDATE_POOL, WEEK_2_MEMBERS } from './data/week2Data';
+import { curateSlate, DEFAULT_CURATION_CONFIG } from './services/slateCuratorService';
 import { HISTORICAL_2025_GAMES, HISTORICAL_2025_MEMBERS, SIMULATION_STEPS } from './data/historical2025';
 import type { SimulationPhase } from './data/historical2025';
 import { PickSheet } from './components/PickSheet';
@@ -19,27 +21,61 @@ type Tab = 'picks' | 'matrix' | 'standings' | 'commish';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('picks');
-  const [games, setGames] = useState<Game[]>(() => {
-    const saved = localStorage.getItem('pickem_ncaa_opening_v3');
-    return saved ? JSON.parse(saved) : INITIAL_GAMES;
+  
+  // Multi-Week Slate System - Defaults to Week 2 ("Next Week" requested by user!)
+  const [activeWeek, setActiveWeek] = useState<number>(() => {
+    const saved = localStorage.getItem('pickem_active_week_v7');
+    return saved ? parseInt(saved, 10) : 2;
   });
 
-  const [members] = useState<LeagueMember[]>(() => {
-    const saved = localStorage.getItem('pickem_ncaa_members_v3');
-    return saved ? JSON.parse(saved) : MOCK_LEAGUE_MEMBERS;
-  });
-
-  const [userPicks, setUserPicks] = useState<Record<string, UserPick>>(() => {
-    const saved = localStorage.getItem('pickem_ncaa_picks_v3');
-    return saved ? JSON.parse(saved) : {
-      'game-1': { gameId: 'game-1', selectedTeamId: 'psu', spreadAtPick: -24.5 },
-      'game-6': { gameId: 'game-6', selectedTeamId: 'lsu', spreadAtPick: -9.5 },
+  const [weeklyGames, setWeeklyGames] = useState<Record<number, Game[]>>(() => {
+    const saved = localStorage.getItem('pickem_weekly_games_v7');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {
+      1: INITIAL_GAMES,
+      2: WEEK_2_CURATED_GAMES,
     };
   });
 
-  const [tiebreaker, setTiebreaker] = useState<TiebreakerPick>(() => {
-    const saved = localStorage.getItem('pickem_ncaa_tiebreaker_v3');
-    return saved ? JSON.parse(saved) : { week: 1, predictedTotalScore: 55 };
+  const [members] = useState<LeagueMember[]>(() => {
+    const saved = localStorage.getItem('pickem_ncaa_members_v7');
+    return saved ? JSON.parse(saved) : MOCK_LEAGUE_MEMBERS;
+  });
+
+  const [allUserPicks, setAllUserPicks] = useState<Record<number, Record<string, UserPick>>>(() => {
+    const saved = localStorage.getItem('pickem_all_user_picks_v7');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {
+      1: {
+        'game-1': { gameId: 'game-1', selectedTeamId: 'psu', spreadAtPick: -24.5 },
+        'game-6': { gameId: 'game-6', selectedTeamId: 'lsu', spreadAtPick: -9.5 },
+      },
+      2: {
+        'w2-game-1': { gameId: 'w2-game-1', selectedTeamId: 'tex', spreadAtPick: 2.5 },
+        'w2-game-5': { gameId: 'w2-game-5', selectedTeamId: 'tcu', spreadAtPick: -34.5 },
+      },
+    };
+  });
+
+  const [weeklyTiebreakers, setWeeklyTiebreakers] = useState<Record<number, TiebreakerPick>>(() => {
+    const saved = localStorage.getItem('pickem_weekly_tiebreakers_v7');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {
+      1: { week: 1, predictedTotalScore: 55 },
+      2: { week: 2, predictedTotalScore: 58 },
+    };
   });
 
   // 2025 Historical Simulation States
@@ -50,64 +86,83 @@ export function App() {
 
   // Sync to localStorage
   useEffect(() => {
-    localStorage.setItem('pickem_ncaa_opening_v3', JSON.stringify(games));
-  }, [games]);
+    localStorage.setItem('pickem_active_week_v7', activeWeek.toString());
+  }, [activeWeek]);
 
   useEffect(() => {
-    localStorage.setItem('pickem_ncaa_picks_v3', JSON.stringify(userPicks));
-  }, [userPicks]);
+    localStorage.setItem('pickem_weekly_games_v7', JSON.stringify(weeklyGames));
+  }, [weeklyGames]);
 
   useEffect(() => {
-    localStorage.setItem('pickem_ncaa_tiebreaker_v3', JSON.stringify(tiebreaker));
-  }, [tiebreaker]);
+    localStorage.setItem('pickem_all_user_picks_v7', JSON.stringify(allUserPicks));
+  }, [allUserPicks]);
+
+  useEffect(() => {
+    localStorage.setItem('pickem_weekly_tiebreakers_v7', JSON.stringify(weeklyTiebreakers));
+  }, [weeklyTiebreakers]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const currentWeekPicks = allUserPicks[activeWeek] || {};
+  const currentWeekTiebreaker = weeklyTiebreakers[activeWeek] || { week: activeWeek, predictedTotalScore: 58 };
+
   const handleSelectPick = (gameId: string, selectedTeamId: string, spreadAtPick: number) => {
-    setUserPicks((prev) => {
-      const next = {
-        ...prev,
+    setAllUserPicks((prev) => ({
+      ...prev,
+      [activeWeek]: {
+        ...(prev[activeWeek] || {}),
         [gameId]: {
           gameId,
           selectedTeamId,
           spreadAtPick,
           submittedAt: new Date().toISOString(),
         },
-      };
-      return next;
-    });
+      },
+    }));
   };
 
   const handleTiebreakerChange = (score: number) => {
-    setTiebreaker({
-      week: 4,
-      predictedTotalScore: score,
-      submittedAt: new Date().toISOString(),
-    });
+    setWeeklyTiebreakers((prev) => ({
+      ...prev,
+      [activeWeek]: {
+        week: activeWeek,
+        predictedTotalScore: score,
+        submittedAt: new Date().toISOString(),
+      },
+    }));
   };
 
   const handleSubmitPicks = () => {
-    showToast('✓ All picks successfully submitted and locked!');
+    showToast(`✓ All Week ${activeWeek} picks successfully submitted and locked!`);
   };
 
   // Commissioner Actions
   const handleUpdateGameSpread = (gameId: string, newSpread: number) => {
-    setGames((prev) =>
-      prev.map((g) => (g.id === gameId ? { ...g, spread: newSpread, isCustomSpread: true } : g))
-    );
+    setWeeklyGames((prev) => ({
+      ...prev,
+      [activeWeek]: (prev[activeWeek] || []).map((g) =>
+        g.id === gameId ? { ...g, spread: newSpread, isCustomSpread: true } : g
+      ),
+    }));
     showToast(`Spread updated to ${newSpread > 0 ? `+${newSpread}` : newSpread}`);
   };
 
   const handleToggleGameInclusion = (gameId: string) => {
-    setGames((prev) => prev.filter((g) => g.id !== gameId));
+    setWeeklyGames((prev) => ({
+      ...prev,
+      [activeWeek]: (prev[activeWeek] || []).filter((g) => g.id !== gameId),
+    }));
     showToast('Game removed from weekly slate');
   };
 
   const handleAddCustomGame = (newGame: Game) => {
-    setGames((prev) => [newGame, ...prev]);
+    setWeeklyGames((prev) => ({
+      ...prev,
+      [activeWeek]: [newGame, ...(prev[activeWeek] || [])],
+    }));
     showToast(`Added ${newGame.awayTeam.name} @ ${newGame.homeTeam.name}`);
   };
 
@@ -117,8 +172,9 @@ export function App() {
     awayScore: number,
     status: 'pre' | 'in' | 'post'
   ) => {
-    setGames((prev) =>
-      prev.map((g) =>
+    setWeeklyGames((prev) => ({
+      ...prev,
+      [activeWeek]: (prev[activeWeek] || []).map((g) =>
         g.id === gameId
           ? {
               ...g,
@@ -128,8 +184,8 @@ export function App() {
               gameClock: status === 'in' ? 'Q3 08:30' : undefined,
             }
           : g
-      )
-    );
+      ),
+    }));
     showToast('Scores updated! Live matrix recalculated.');
   };
 
@@ -137,12 +193,27 @@ export function App() {
   const [dropWorstWeekEnabled, setDropWorstWeekEnabled] = useState(true);
 
   const handleSyncEspnGames = (syncedGames: Game[]) => {
-    setGames(syncedGames);
+    setWeeklyGames((prev) => ({
+      ...prev,
+      [activeWeek]: syncedGames,
+    }));
     showToast(`✓ Loaded ${syncedGames.length} real Saturday games from ESPN!`);
+  };
+
+  const handleAutoCurateWeekSlate = (week: number, config: SlateCurationConfig = DEFAULT_CURATION_CONFIG) => {
+    const pool = week === 2 ? WEEK_2_CANDIDATE_POOL : INITIAL_GAMES;
+    const curated = curateSlate(pool, config);
+    setWeeklyGames((prev) => ({
+      ...prev,
+      [week]: curated,
+    }));
+    showToast(`⚡ Auto-Selected ${curated.length} games for Week ${week} (Top 25 + SEC + TCU)!`);
   };
 
   // 2025 Historical Simulation Selectors
   const simulationStep = SIMULATION_STEPS.find((s) => s.id === simulationPhase) || SIMULATION_STEPS[0];
+
+  const activeGames = weeklyGames[activeWeek] || (activeWeek === 2 ? WEEK_2_CURATED_GAMES : INITIAL_GAMES);
 
   const displayGames: Game[] = isSimulating2025
     ? HISTORICAL_2025_GAMES.map((baseGame) => {
@@ -159,17 +230,21 @@ export function App() {
           gameClock: status === 'in' ? (situation?.downDistanceText || 'LIVE') : undefined,
         };
       })
-    : games;
+    : activeGames;
 
-  const displayMembers: LeagueMember[] = isSimulating2025 ? HISTORICAL_2025_MEMBERS : members;
+  const displayMembers: LeagueMember[] = isSimulating2025
+    ? HISTORICAL_2025_MEMBERS
+    : activeWeek === 2
+    ? WEEK_2_MEMBERS
+    : members;
 
   const displayUserPicks: Record<string, UserPick> = isSimulating2025
     ? (HISTORICAL_2025_MEMBERS.find((m) => m.isCurrentUser)?.picks as Record<string, UserPick> || {})
-    : userPicks;
+    : currentWeekPicks;
 
   const displayTiebreaker: TiebreakerPick = isSimulating2025
     ? { week: 1, predictedTotalScore: 45, submittedAt: '2025-08-30T14:00:00Z' }
-    : tiebreaker;
+    : currentWeekTiebreaker;
 
   const handleToggleSeasonMode = (simulate2025: boolean) => {
     setIsSimulating2025(simulate2025);
@@ -177,7 +252,7 @@ export function App() {
       setSimulationPhase('afternoon_kick');
       showToast('Switched to 2025 Replay: Showing completed & live games');
     } else {
-      showToast('Returned to Live 2026 Opening Saturday Slate');
+      showToast(`Returned to Live NCAA 2026 Week ${activeWeek} Slate`);
     }
   };
 
@@ -214,10 +289,20 @@ export function App() {
                 </span>
               </div>
               <div className="text-xs text-slate-400 flex items-center gap-1">
-                <span>{isSimulating2025 ? '2025 Week 1 Replay' : 'Week 1 Opening Saturday'}</span>
+                <span>
+                  {isSimulating2025
+                    ? '2025 Week 1 Replay'
+                    : activeWeek === 2
+                    ? 'Week 2 Next Week (Sep 12, 2026)'
+                    : 'Week 1 Opening Saturday'}
+                </span>
                 <span>•</span>
                 <span className={isSimulating2025 ? 'text-amber-400 font-medium' : 'text-emerald-400 font-medium'}>
-                  {isSimulating2025 ? '8 Real Marquee Games' : 'Top 25 Slate'}
+                  {isSimulating2025
+                    ? '8 Real Marquee Games'
+                    : activeWeek === 2
+                    ? '12 Curated Games (Top 25 + SEC + TCU)'
+                    : 'Top 25 Slate'}
                 </span>
               </div>
             </div>
@@ -298,7 +383,9 @@ export function App() {
         onResetTo2026={() => handleToggleSeasonMode(false)}
         isSimulating2025={isSimulating2025}
         onToggleSeasonMode={handleToggleSeasonMode}
-        onApplySimulatedGames={(simGames) => setGames(simGames)}
+        onApplySimulatedGames={(simGames) =>
+          setWeeklyGames((prev) => ({ ...prev, [activeWeek]: simGames }))
+        }
       />
 
       {/* Main Viewport Content */}
@@ -308,6 +395,8 @@ export function App() {
             games={displayGames}
             picks={displayUserPicks}
             tiebreaker={displayTiebreaker}
+            activeWeek={activeWeek}
+            onSelectWeek={setActiveWeek}
             onSelectPick={handleSelectPick}
             onTiebreakerChange={handleTiebreakerChange}
             onSubmitPicks={handleSubmitPicks}
@@ -329,6 +418,9 @@ export function App() {
         {activeTab === 'commish' && (
           <CommissionerDashboard
             games={displayGames}
+            activeWeek={activeWeek}
+            onSelectWeek={setActiveWeek}
+            onAutoCurateWeekSlate={handleAutoCurateWeekSlate}
             onUpdateGameSpread={handleUpdateGameSpread}
             onToggleGameInclusion={handleToggleGameInclusion}
             onAddCustomGame={handleAddCustomGame}

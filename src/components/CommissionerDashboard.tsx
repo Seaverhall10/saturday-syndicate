@@ -1,15 +1,31 @@
 import React, { useState } from 'react';
-import type { Game, SportLeague } from '../types/pickem';
-import { ShieldCheck, Plus, Edit3, Check, Trash2, RefreshCw, Share2, Users } from 'lucide-react';
+import type { Game, SlateCurationConfig, SportLeague } from '../types/pickem';
+import { 
+  ShieldCheck, 
+  Plus, 
+  Edit3, 
+  Check, 
+  Trash2, 
+  RefreshCw, 
+  Share2, 
+  Users,
+  Wand2,
+  Sparkles,
+  Calendar
+} from 'lucide-react';
 import { fetchLiveEspnScoreboard } from '../services/espnService';
+import { DEFAULT_CURATION_CONFIG, getCurationBreakdown } from '../services/slateCuratorService';
 
 interface CommissionerDashboardProps {
   games: Game[];
+  activeWeek?: number;
+  onSelectWeek?: (week: number) => void;
   onUpdateGameSpread: (gameId: string, newSpread: number) => void;
   onToggleGameInclusion: (gameId: string) => void;
   onAddCustomGame: (newGame: Game) => void;
   onUpdateScore: (gameId: string, homeScore: number, awayScore: number, status: 'pre' | 'in' | 'post') => void;
   onSyncEspnGames?: (games: Game[]) => void;
+  onAutoCurateWeekSlate?: (week: number, config: SlateCurationConfig) => void;
   proxyPicksEnabled?: boolean;
   onToggleProxyPicks?: (enabled: boolean) => void;
   dropWorstWeekEnabled?: boolean;
@@ -18,11 +34,14 @@ interface CommissionerDashboardProps {
 
 export const CommissionerDashboard: React.FC<CommissionerDashboardProps> = ({
   games,
+  activeWeek = 2,
+  onSelectWeek,
   onUpdateGameSpread,
   onToggleGameInclusion,
   onAddCustomGame,
   onUpdateScore,
   onSyncEspnGames,
+  onAutoCurateWeekSlate,
   proxyPicksEnabled = true,
   onToggleProxyPicks,
   dropWorstWeekEnabled = true,
@@ -34,6 +53,9 @@ export const CommissionerDashboard: React.FC<CommissionerDashboardProps> = ({
   const [isSyncingEspn, setIsSyncingEspn] = useState(false);
   const [syncStatusText, setSyncStatusText] = useState<string | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [curationConfig, setCurationConfig] = useState<SlateCurationConfig>(DEFAULT_CURATION_CONFIG);
+
+  const breakdown = getCurationBreakdown(games);
 
   // New Custom Game Form State
   const [customAwayName, setCustomAwayName] = useState('');
@@ -201,6 +223,197 @@ export const CommissionerDashboard: React.FC<CommissionerDashboardProps> = ({
         )}
       </div>
 
+      {/* Week Selector Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Managing Slate for:</div>
+            <div className="font-extrabold text-base sm:text-lg text-white">
+              {activeWeek === 1 ? 'Week 1 • Opening Saturday' : 'Week 2 • Next Week (Active Slate)'}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onSelectWeek?.(1)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeWeek === 1
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+            }`}
+          >
+            Week 1 (Past)
+          </button>
+          <button
+            onClick={() => onSelectWeek?.(2)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeWeek === 2
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+            }`}
+          >
+            <span>Week 2 (Next Week)</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          </button>
+        </div>
+      </div>
+
+      {/* Auto-Select Slate (Top 25 + SEC + TCU) - Scalable Engine */}
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shrink-0 mt-0.5">
+              <Wand2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base sm:text-lg font-black text-white">
+                  Automated Slate Curation Engine
+                </h3>
+                <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  Scalable Rules
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+                Automatically curates your league's games based on preset criteria: 
+                <strong className="text-white"> Top 25 Ranked Matchups</strong>, 
+                <strong className="text-amber-400"> All SEC Conference Games</strong>, and 
+                <strong className="text-purple-400"> TCU Horned Frogs</strong>.
+              </p>
+            </div>
+          </div>
+
+          {/* Big Auto-Select Action Button */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                if (onAutoCurateWeekSlate) {
+                  onAutoCurateWeekSlate(activeWeek, curationConfig);
+                  setSyncStatusText(`✓ Curated Week ${activeWeek} slate: Top 25 + SEC + TCU applied!`);
+                  setTimeout(() => setSyncStatusText(null), 3500);
+                }
+              }}
+              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-4 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm transition-all shadow-lg shadow-indigo-600/30 active:scale-95"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span>Auto-Select Week {activeWeek} Slate</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Rule Toggles & Metrics Bar */}
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Rule 1: Top 25 */}
+          <button
+            onClick={() =>
+              setCurationConfig((prev) => ({ ...prev, includeTop25: !prev.includeTop25 }))
+            }
+            className={`p-3 rounded-xl border text-left transition-all ${
+              curationConfig.includeTop25
+                ? 'bg-indigo-950/50 border-indigo-500/60 shadow-sm'
+                : 'bg-slate-950/40 border-slate-800 opacity-60'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>⭐</span> Top 25 Ranked
+              </span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${curationConfig.includeTop25 ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                {curationConfig.includeTop25 ? 'ENABLED' : 'OFF'}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              Includes any game featuring an AP Top {curationConfig.maxRank} team
+            </div>
+          </button>
+
+          {/* Rule 2: SEC Matchups */}
+          <button
+            onClick={() =>
+              setCurationConfig((prev) => ({
+                ...prev,
+                includeConferences: prev.includeConferences.includes('SEC')
+                  ? prev.includeConferences.filter((c) => c !== 'SEC')
+                  : [...prev.includeConferences, 'SEC'],
+              }))
+            }
+            className={`p-3 rounded-xl border text-left transition-all ${
+              curationConfig.includeConferences.includes('SEC')
+                ? 'bg-amber-950/40 border-amber-500/60 shadow-sm'
+                : 'bg-slate-950/40 border-slate-800 opacity-60'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>🏈</span> All SEC Games
+              </span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${curationConfig.includeConferences.includes('SEC') ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                {curationConfig.includeConferences.includes('SEC') ? 'ENABLED' : 'OFF'}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              Guarantees every SEC team's conference & non-con matchup
+            </div>
+          </button>
+
+          {/* Rule 3: TCU Horned Frogs */}
+          <button
+            onClick={() =>
+              setCurationConfig((prev) => ({
+                ...prev,
+                includeTeams: prev.includeTeams.includes('TCU') ? [] : ['TCU', 'Horned Frogs'],
+              }))
+            }
+            className={`p-3 rounded-xl border text-left transition-all ${
+              curationConfig.includeTeams.includes('TCU')
+                ? 'bg-purple-950/50 border-purple-500/60 shadow-sm'
+                : 'bg-slate-950/40 border-slate-800 opacity-60'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>🐸</span> TCU Horned Frogs
+              </span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${curationConfig.includeTeams.includes('TCU') ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                {curationConfig.includeTeams.includes('TCU') ? 'MUST INCLUDE' : 'OFF'}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              Always locks TCU game onto the weekly slate
+            </div>
+          </button>
+        </div>
+
+        {/* Live Active Breakdown Stats */}
+        <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3 text-slate-300 flex-wrap font-medium">
+            <span className="flex items-center gap-1">
+              <span className="text-emerald-400 font-bold">●</span> {breakdown.total} Games on Card
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1 text-indigo-300">
+              <span>⭐</span> {breakdown.top25Count} Top 25
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1 text-amber-300">
+              <span>🏈</span> {breakdown.secCount} SEC Games
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1 text-purple-300">
+              <span>🐸</span> {breakdown.tcuIncluded ? 'TCU Locked In ✓' : 'No TCU Matchup'}
+            </span>
+          </div>
+
+          <span className="text-[11px] text-slate-400 italic">
+            Automated curation replaces manual line-picking
+          </span>
+        </div>
+      </div>
+
       {/* League Invite Code & Quick Join */}
       <div className="bg-gradient-to-r from-indigo-950/70 to-slate-900 border border-indigo-800/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
         <div className="flex items-center gap-3">
@@ -308,20 +521,44 @@ export const CommissionerDashboard: React.FC<CommissionerDashboardProps> = ({
                 className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-850/40 transition-colors"
               >
                 {/* Matchup Info */}
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                    {game.league}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <img src={game.awayTeam.logoUrl} alt="" className="w-6 h-6 object-contain" />
-                    <span className="font-bold text-white text-sm">
-                      {game.awayTeam.name}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                      {game.league}
                     </span>
-                    <span className="text-slate-500 text-xs font-semibold">@</span>
-                    <img src={game.homeTeam.logoUrl} alt="" className="w-6 h-6 object-contain" />
-                    <span className="font-bold text-white text-sm">
-                      {game.homeTeam.name}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <img src={game.awayTeam.logoUrl} alt="" className="w-6 h-6 object-contain" />
+                      <span className="font-bold text-white text-sm">
+                        {game.awayTeam.name}
+                      </span>
+                      <span className="text-slate-500 text-xs font-semibold">@</span>
+                      <img src={game.homeTeam.logoUrl} alt="" className="w-6 h-6 object-contain" />
+                      <span className="font-bold text-white text-sm">
+                        {game.homeTeam.name}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap pl-1">
+                    {game.isTiebreaker && (
+                      <span className="bg-purple-950/80 text-purple-300 border border-purple-800/60 px-1.5 py-0.5 rounded text-[9px] font-extrabold">
+                        ⭐ TIEBREAKER
+                      </span>
+                    )}
+                    {game.curationReasons?.map((reason, i) => (
+                      <span
+                        key={i}
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                          reason.includes('TCU')
+                            ? 'bg-purple-950/60 text-purple-300 border border-purple-800/50'
+                            : reason.includes('SEC')
+                            ? 'bg-amber-950/60 text-amber-300 border border-amber-800/50'
+                            : 'bg-indigo-950/60 text-indigo-300 border border-indigo-800/50'
+                        }`}
+                      >
+                        {reason}
+                      </span>
+                    ))}
                   </div>
                 </div>
 

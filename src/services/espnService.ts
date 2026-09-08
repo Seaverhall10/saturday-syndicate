@@ -1,4 +1,5 @@
-import type { Game, GameStatus, Team } from '../types/pickem';
+import type { Game, GameStatus, SlateCurationConfig, Team } from '../types/pickem';
+import { isSecTeam, curateSlate, DEFAULT_CURATION_CONFIG } from './slateCuratorService';
 
 export interface EspnSyncResult {
   success: boolean;
@@ -52,6 +53,7 @@ export function transformEspnEvent(event: any): Game | null {
       abbreviation: homeComp.team.abbreviation || 'HOME',
       logoUrl: homeComp.team.logo || `https://a.espncdn.com/i/teamlogos/ncaa/500/${homeComp.team.id}.png`,
       rank: homeRank && homeRank <= 25 ? homeRank : undefined,
+      conference: homeComp.team.conference?.abbreviation || (isSecTeam(homeComp.team) ? 'SEC' : undefined),
       record: homeComp.records?.[0]?.summary || '0-0',
       primaryColor: homeComp.team.color ? `#${homeComp.team.color}` : '#1e293b',
     };
@@ -65,6 +67,7 @@ export function transformEspnEvent(event: any): Game | null {
       abbreviation: awayComp.team.abbreviation || 'AWAY',
       logoUrl: awayComp.team.logo || `https://a.espncdn.com/i/teamlogos/ncaa/500/${awayComp.team.id}.png`,
       rank: awayRank && awayRank <= 25 ? awayRank : undefined,
+      conference: awayComp.team.conference?.abbreviation || (isSecTeam(awayComp.team) ? 'SEC' : undefined),
       record: awayComp.records?.[0]?.summary || '0-0',
       primaryColor: awayComp.team.color ? `#${awayComp.team.color}` : '#334155',
     };
@@ -132,9 +135,15 @@ export function transformEspnEvent(event: any): Game | null {
 }
 
 // Fetch live college football scoreboard from ESPN
-export async function fetchLiveEspnScoreboard(): Promise<EspnSyncResult> {
+export async function fetchLiveEspnScoreboard(week?: number, dates?: string): Promise<EspnSyncResult> {
   try {
-    const url = '/api/espn/apis/site/v2/sports/football/college-football/scoreboard';
+    let url = '/api/espn/apis/site/v2/sports/football/college-football/scoreboard';
+    const params = new URLSearchParams();
+    if (week) params.append('week', week.toString());
+    if (dates) params.append('dates', dates);
+    const queryStr = params.toString();
+    if (queryStr) url += `?${queryStr}`;
+
     const res = await fetch(url);
 
     if (!res.ok) {
@@ -170,4 +179,25 @@ export async function fetchLiveEspnScoreboard(): Promise<EspnSyncResult> {
       timestamp: new Date().toISOString(),
     };
   }
+}
+
+/**
+ * Fetches all available games and runs the automated slate curation rules:
+ * Top 25 Teams + SEC Games + TCU Horned Frogs
+ */
+export async function fetchAndCurateEspnSlate(
+  week?: number,
+  config: SlateCurationConfig = DEFAULT_CURATION_CONFIG
+): Promise<EspnSyncResult> {
+  const rawResult = await fetchLiveEspnScoreboard(week);
+  if (!rawResult.success || rawResult.games.length === 0) {
+    return rawResult;
+  }
+
+  const curated = curateSlate(rawResult.games, config);
+  return {
+    success: true,
+    games: curated,
+    timestamp: rawResult.timestamp,
+  };
 }

@@ -10,6 +10,7 @@ export interface Team {
   logoUrl: string;
   record?: string;
   rank?: number;
+  conference?: string; // e.g. 'SEC', 'Big 12', 'Big Ten', 'ACC', 'FCS', 'Independent'
   primaryColor?: string;
 }
 
@@ -63,6 +64,7 @@ export interface Game {
   weather?: GameWeather;
   notes?: GameNote[];
   situation?: GameSituation;
+  curationReasons?: string[]; // e.g. ['Top 25 (#1 vs #5)', 'SEC Matchup', 'TCU Special']
 }
 
 export interface UserPick {
@@ -99,10 +101,21 @@ export interface LeagueMember {
 }
 
 export interface WeeklySlate {
+  id?: string;
   season: number;
   week: number;
   title: string;
   lineFreezeTime: string; // ISO 8601 UTC
   isFrozen: boolean;
   games: Game[];
+  curationCriteria?: string;
 }
+
+export interface SlateCurationConfig {
+  includeTop25: boolean;
+  maxRank: number; // default 25
+  includeConferences: string[]; // default ['SEC']
+  includeTeams: string[]; // default ['TCU', 'Horned Frogs']
+  excludeFcsVsFcs?: boolean;
+}
+

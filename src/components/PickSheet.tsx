@@ -14,6 +14,8 @@ interface PickSheetProps {
   games: Game[];
   picks: Record<string, UserPick>;
   tiebreaker: TiebreakerPick;
+  activeWeek?: number;
+  onSelectWeek?: (week: number) => void;
   onSelectPick: (gameId: string, teamId: string, spread: number) => void;
   onTiebreakerChange: (score: number) => void;
   onSubmitPicks: () => void;
@@ -23,6 +25,8 @@ export const PickSheet: React.FC<PickSheetProps> = ({
   games,
   picks,
   tiebreaker,
+  activeWeek = 2,
+  onSelectWeek,
   onSelectPick,
   onTiebreakerChange,
   onSubmitPicks,
@@ -76,6 +80,39 @@ export const PickSheet: React.FC<PickSheetProps> = ({
 
   return (
     <div className="space-y-4 pb-24 max-w-3xl mx-auto px-2 sm:px-4">
+      {/* Week Selector Bar */}
+      <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-2xl px-4 py-2.5 shadow-md">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Week:</span>
+          <span className="text-sm font-black text-white">
+            {activeWeek === 1 ? 'Week 1 (Opener)' : 'Week 2 (Next Week • Live Slate)'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => onSelectWeek?.(1)}
+            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+              activeWeek === 1
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-slate-800 text-slate-400 hover:text-white'
+            }`}
+          >
+            Week 1
+          </button>
+          <button
+            onClick={() => onSelectWeek?.(2)}
+            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeWeek === 2
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-slate-800 text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>Week 2</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          </button>
+        </div>
+      </div>
+
       {/* Sleek Floating Status Bar */}
       <div className="sticky top-2 z-20 bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-2xl px-4 py-3 shadow-xl flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -177,7 +214,7 @@ export const PickSheet: React.FC<PickSheetProps> = ({
             >
               {/* Clean 1-Line Header with ATS Cover Indicator */}
               <div className="flex flex-wrap items-center justify-between gap-1.5 px-4 py-2.5 bg-slate-950/60 border-b border-slate-800/50 text-xs">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-slate-300 font-semibold">
                     {formatKickoff(game.kickoffTime)}
                   </span>
@@ -186,6 +223,20 @@ export const PickSheet: React.FC<PickSheetProps> = ({
                       ⭐ Tiebreaker
                     </span>
                   )}
+                  {game.curationReasons?.map((reason, i) => (
+                    <span
+                      key={i}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                        reason.includes('TCU')
+                          ? 'bg-purple-950/80 text-purple-300 border border-purple-800/60'
+                          : reason.includes('SEC')
+                          ? 'bg-amber-950/80 text-amber-300 border border-amber-800/60'
+                          : 'bg-indigo-950/80 text-indigo-300 border border-indigo-800/60'
+                      }`}
+                    >
+                      {reason}
+                    </span>
+                  ))}
                 </div>
 
                 <div className="flex items-center gap-2 font-medium">
